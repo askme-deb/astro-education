@@ -35,4 +35,13 @@ return [
         ],
     ],
 
+    'lms_api' => [
+        'base_url' => env('LMS_API_BASE_URL', 'https://admin.astrorajumaharaj.com/api/v1'),
+        'token' => env('LMS_API_TOKEN'),
+        'timeout' => env('LMS_API_TIMEOUT', 30),
+        'retry_times' => env('LMS_API_RETRY_TIMES', 3),
+        'retry_sleep' => env('LMS_API_RETRY_SLEEP', 500),
+        'cache_ttl' => env('LMS_CACHE_TTL', 3600),
+    ],
+
 ];
