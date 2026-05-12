@@ -7,6 +7,7 @@ use Illuminate\Cache\TaggableStore;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Session;
 use Illuminate\Http\Client\RequestException;
 use Throwable;
 
@@ -22,6 +23,8 @@ abstract class BaseApiClient
     protected int $timeout;
     protected int $retryTimes;
     protected int $retrySleep;
+    protected ?string $lastTokenSource = null;
+    protected bool $lastAuthHeaderPresent = false;
 
     public function __construct()
     {
@@ -37,19 +40,64 @@ abstract class BaseApiClient
         $default = [
             'Accept' => 'application/json',
         ];
-        if ($this->token) {
-            $default['Authorization'] = 'Bearer ' . $this->token;
+
+        $tokenContext = $this->resolveTokenContext();
+        $token = $tokenContext['token'];
+        $this->lastTokenSource = $tokenContext['source'];
+        $this->lastAuthHeaderPresent = is_string($token) && $token !== '';
+
+        if ($token) {
+            $default['Authorization'] = 'Bearer ' . $token;
         }
+
         return array_merge($default, $headers);
+    }
+
+    protected function resolveToken(): ?string
+    {
+        return $this->resolveTokenContext()['token'];
+    }
+
+    protected function resolveTokenContext(): array
+    {
+        $sessionToken = Session::get('auth.api_token');
+
+        if (is_string($sessionToken) && $sessionToken !== '') {
+            return [
+                'token' => $sessionToken,
+                'source' => 'session',
+            ];
+        }
+
+        $cookieToken = request()?->cookie('auth_api_token');
+
+        if (is_string($cookieToken) && $cookieToken !== '') {
+            return [
+                'token' => $cookieToken,
+                'source' => 'cookie',
+            ];
+        }
+
+        if (is_string($this->token) && $this->token !== '') {
+            return [
+                'token' => $this->token,
+                'source' => 'config',
+            ];
+        }
+
+        return [
+            'token' => null,
+            'source' => null,
+        ];
     }
 
     protected function request(string $method, string $uri, array $options = [])
     {
         $url = rtrim($this->baseUrl, '/') . '/' . ltrim($uri, '/');
         $headers = $this->buildHeaders($options['headers'] ?? []);
-        $body = $options['body'] ?? [];
+        $body = $options['body'] ?? $options['json'] ?? [];
         $query = $options['query'] ?? [];
-        $multipart = $options['multipart'] ?? false;
+        $multipart = $options['multipart'] ?? null;
         $cacheKey = $options['cache_key'] ?? null;
         $cacheTtl = $options['cache_ttl'] ?? null;
 
@@ -76,7 +124,7 @@ abstract class BaseApiClient
         $repository = Cache::store();
 
         if ($this->supportsTags($repository)) {
-            return $repository->tags($tags)->remember($cacheKey, $cacheTtl, $callback);
+            return Cache::tags($tags)->remember($cacheKey, $cacheTtl, $callback);
         }
 
         return $repository->remember($cacheKey, $cacheTtl, $callback);
@@ -90,18 +138,24 @@ abstract class BaseApiClient
     protected function sendRequest(string $method, string $url, array $options)
     {
         try {
+            $payload = [
+                'query' => $options['query'] ?? [],
+            ];
+
+            if (is_array($options['multipart'] ?? null) && $options['multipart'] !== []) {
+                $payload['multipart'] = $options['multipart'];
+            } elseif (array_key_exists('body', $options) && is_array($options['body']) && $options['body'] !== []) {
+                $payload['json'] = $options['body'];
+            }
+
             $response = Http::withOptions([
                 'timeout' => $this->timeout,
             ])
                 ->withHeaders($options['headers'] ?? [])
                 ->retry($this->retryTimes, $this->retrySleep, function ($exception) {
                     return $exception instanceof RequestException;
-                })
-                ->send($method, $url, [
-                    'query' => $options['query'] ?? [],
-                    'json' => $options['body'] ?? null,
-                    'multipart' => $options['multipart'] ?? null,
-                ]);
+                }, false)
+                ->send($method, $url, $payload);
 
             return $this->handleResponse($response);
         } catch (Throwable $e) {
@@ -121,6 +175,8 @@ abstract class BaseApiClient
         Log::warning('API Error', [
             'url' => $response->effectiveUri(),
             'status' => $response->status(),
+            'authorization_present' => $this->lastAuthHeaderPresent,
+            'token_source' => $this->lastTokenSource,
             'body' => $response->body(),
         ]);
         return [
@@ -134,6 +190,8 @@ abstract class BaseApiClient
     {
         Log::error('API Exception', [
             'message' => $e->getMessage(),
+            'authorization_present' => $this->lastAuthHeaderPresent,
+            'token_source' => $this->lastTokenSource,
             'trace' => $e->getTraceAsString(),
         ]);
         return [

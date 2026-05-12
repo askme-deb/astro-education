@@ -4,7 +4,8 @@ namespace App\Http\Controllers\LMS;
 
 use App\Http\Controllers\Controller;
 use App\Services\Api\LiveClasses\LiveClassApiService;
-use Illuminate\Http\Request;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\View\View;
 
 /**
  * Handles live class-related frontend requests.
@@ -19,15 +20,25 @@ class LiveClassController extends Controller
         $this->liveClassApiService = $liveClassApiService;
     }
 
-    public function index()
+    public function index(): View
     {
-        $liveClasses = $this->liveClassApiService->listLiveClasses();
-        return view('live-classes.index', compact('liveClasses'));
+        return view('live-classes.index', $this->liveClassApiService->catalog());
     }
 
-    public function show($id)
+    public function show($id): View
     {
-        $liveClass = $this->liveClassApiService->getLiveClassRecording($id);
-        return view('live-classes.show', compact('liveClass'));
+        return view('live-classes.show', [
+            'liveClass' => $this->liveClassApiService->detail((int) $id),
+        ]);
+    }
+
+    public function enroll($id): RedirectResponse
+    {
+        $liveClassId = (int) $id;
+        $response = $this->liveClassApiService->enrollInStandaloneLiveClass($liveClassId);
+
+        return redirect()
+            ->route('live-classes.show', ['id' => $liveClassId])
+            ->with($response['success'] ? 'status' : 'error', $response['success'] ? 'Live class enrollment completed successfully.' : ($response['error'] ?? 'Unable to enroll in this live class right now.'));
     }
 }

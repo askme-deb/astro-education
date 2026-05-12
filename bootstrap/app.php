@@ -13,6 +13,12 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'enrollment' => \App\Middleware\EnrollmentMiddleware::class,
+            'api.user.auth' => \App\Middleware\ApiUserAuthenticated::class,
+        ]);
+        $middleware->prepend(\App\Middleware\EncryptCookies::class);
+        $middleware->encryptCookies(except: [
+            'guest_user_id',
+            'auth_api_token',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -176,6 +176,8 @@ class CourseApiService extends BaseApiClient
             return null;
         }
 
+        $normalizedLessons = $this->normalizeLessons($course);
+
         return [
             'id' => (string) $id,
             'title' => (string) ($course['title'] ?? $course['name'] ?? 'Untitled'),
@@ -188,7 +190,12 @@ class CourseApiService extends BaseApiClient
             'duration_label' => $this->normalizeDuration($course),
             'progress' => $this->normalizeProgress($course),
             'instructor' => $this->normalizeInstructor($course),
+            'instructors' => $this->normalizeInstructors($course),
+            'lessons' => $normalizedLessons,
+            'lesson_count' => count($normalizedLessons),
+            'preview_video_url' => $normalizedLessons[0]['embed_url'] ?? $normalizedLessons[0]['video_url'] ?? null,
             'status' => (string) ($course['status'] ?? 'draft'),
+            'is_public' => (bool) ($course['is_public'] ?? false),
             'raw' => $course,
         ];
     }
@@ -230,6 +237,12 @@ class CourseApiService extends BaseApiClient
             return (string) $duration;
         }
 
+        $lessonsCount = count($this->normalizeLessons($course));
+
+        if ($lessonsCount > 0) {
+            return $lessonsCount . ' lessons';
+        }
+
         return 'Self paced';
     }
 
@@ -242,18 +255,102 @@ class CourseApiService extends BaseApiClient
 
     protected function normalizeInstructor(array $course): string
     {
+        $instructors = $this->normalizeInstructors($course);
+
+        if ($instructors === []) {
+            return 'Faculty assigned soon';
+        }
+
+        return (string) ($instructors[0]['name'] ?? 'Faculty assigned soon');
+    }
+
+    protected function normalizeInstructors(array $course): array
+    {
         $instructors = $course['instructors'] ?? [];
 
-        if (! is_array($instructors) || $instructors === []) {
-            return 'Faculty assigned soon';
+        if (! is_array($instructors)) {
+            return [];
         }
 
-        $primaryInstructor = $instructors[0] ?? [];
+        $items = [];
 
-        if (! is_array($primaryInstructor)) {
-            return 'Faculty assigned soon';
+        foreach ($instructors as $instructor) {
+            if (! is_array($instructor)) {
+                continue;
+            }
+
+            $fullName = trim(implode(' ', array_filter([
+                $instructor['first_name'] ?? null,
+                $instructor['middle_name'] ?? null,
+                $instructor['last_name'] ?? null,
+            ])));
+
+            $items[] = [
+                'id' => $instructor['id'] ?? null,
+                'name' => $fullName !== '' ? $fullName : (string) ($instructor['user_name'] ?? 'Faculty assigned soon'),
+                'email' => $instructor['email'] ?? null,
+                'designation' => $instructor['designation'] ?? $instructor['skill'] ?? null,
+                'bio' => $instructor['skill'] ?? null,
+            ];
         }
 
-        return (string) ($primaryInstructor['name'] ?? $primaryInstructor['full_name'] ?? 'Faculty assigned soon');
+        return $items;
+    }
+
+    protected function normalizeLessons(array $course): array
+    {
+        $lessons = $course['lessons'] ?? [];
+
+        if (! is_array($lessons)) {
+            return [];
+        }
+
+        $items = [];
+
+        foreach ($lessons as $lesson) {
+            if (! is_array($lesson)) {
+                continue;
+            }
+
+            $videoUrl = $lesson['vimeo_id'] ?? null;
+            $items[] = [
+                'id' => $lesson['id'] ?? null,
+                'title' => (string) ($lesson['title'] ?? 'Untitled Lesson'),
+                'type' => Str::title((string) ($lesson['type'] ?? 'Lesson')),
+                'position' => (int) ($lesson['position'] ?? 0),
+                'topic_id' => $lesson['topic_id'] ?? null,
+                'content' => (string) ($lesson['content'] ?? ''),
+                'video_url' => is_scalar($videoUrl) && $videoUrl !== '' ? (string) $videoUrl : null,
+                'embed_url' => $this->normalizeLessonVideoUrl($lesson),
+            ];
+        }
+
+        usort($items, fn (array $left, array $right): int => ($left['position'] <=> $right['position']) ?: (($left['id'] ?? 0) <=> ($right['id'] ?? 0)));
+
+        return $items;
+    }
+
+    protected function normalizeLessonVideoUrl(array $lesson): ?string
+    {
+        $videoUrl = $lesson['vimeo_id'] ?? $lesson['video_url'] ?? null;
+
+        if (! is_scalar($videoUrl) || $videoUrl === '') {
+            return null;
+        }
+
+        $url = trim((string) $videoUrl);
+        $type = strtolower((string) ($lesson['type'] ?? ''));
+
+        if ($type === 'vimeo') {
+            if (preg_match('/vimeo\.com\/(?:video\/)?(\d+)/i', $url, $matches) === 1) {
+                return 'https://player.vimeo.com/video/' . $matches[1];
+            }
+
+            if (preg_match('/^\d+$/', $url) === 1) {
+                return 'https://player.vimeo.com/video/' . $url;
+            }
+        }
+
+        return $url;
     }
 }
