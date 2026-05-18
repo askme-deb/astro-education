@@ -1044,12 +1044,9 @@ $heroCtaUrl = ($isEnrolled ?? false)
                                                                                                                 <a href="{{ route('live-classes.show', ['id' => $liveClass['id']]) }}" class="course-btn-muted">View Details</a>
                                                                                                             @endif
                                                                                                             @if ($hasAuthenticatedUser && !empty($liveClass['id']))
-                                                                                                                <form method="POST" action="{{ route('live-classes.join', ['id' => $liveClass['id']]) }}">
-                                                                                                                    @csrf
-                                                                                                                    <button type="submit" class="course-btn-secondary">
-                                                                                                                        Join Live Class
-                                                                                                                    </button>
-                                                                                                                </form>
+                                                                                                                <a href="{{ route('live-classes.join', ['id' => $liveClass['id']]) }}" class="course-btn-secondary">
+                                                                                                                    Join Live Class
+                                                                                                                </a>
                                                                                                             @endif
                                                                                                         </div>
                                                                                                     </div>

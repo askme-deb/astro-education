@@ -132,6 +132,21 @@ class LiveClassApiService extends BaseApiClient
         return $this->get("live-classes/{$id}/recording");
     }
 
+    public function getRoomAccess(int $id)
+    {
+        return $this->get("live-classes/{$id}/room");
+    }
+
+    public function endLiveClass(int $id)
+    {
+        return $this->post("live-classes/{$id}/end");
+    }
+
+    public function getRoomRecording(int $id)
+    {
+        return $this->get("live-classes/{$id}/room/recording");
+    }
+
     private function extractLiveClassItems(array $response): array
     {
         $payload = $response['data'] ?? [];

@@ -41,4 +41,30 @@ class LiveClassController extends Controller
             ->route('live-classes.show', ['id' => $liveClassId])
             ->with($response['success'] ? 'status' : 'error', $response['success'] ? 'Live class enrollment completed successfully.' : ($response['error'] ?? 'Unable to enroll in this live class right now.'));
     }
+
+    public function room($id): View
+    {
+        $liveClass = $this->liveClassApiService->detail((int) $id);
+
+        // Get join credentials from the API
+        $joinResponse = $this->liveClassApiService->joinLiveClass((int) $id);
+
+        // Extract join payload from response
+        if (!empty($joinResponse['success']) && !empty($joinResponse['data'])) {
+            // The service returns ['success' => true, 'data' => [...API response...]]
+            // The API response contains ['success' => true, 'message' => '...', 'data' => [...]]
+            // So we need to extract the inner 'data' from the API response
+            $apiResponse = $joinResponse['data'];
+            $joinPayload = $apiResponse['data'] ?? $apiResponse;
+        } else {
+            // Fallback to room access endpoint
+            $roomResponse = $this->liveClassApiService->getRoomAccess((int) $id);
+            $joinPayload = $roomResponse['data']['join_payload'] ?? $roomResponse['data'] ?? [];
+        }
+
+        return view('live-classes.room', [
+            'liveClass' => $liveClass,
+            'joinPayload' => $joinPayload,
+        ]);
+    }
 }

@@ -34,5 +34,10 @@ Route::prefix('/v1')->group(function () {
         Route::post('/live-classes/{id}/enroll', [LiveClassController::class, 'enroll']);
         Route::get('/live-classes/{id}/join', [LiveClassController::class, 'join']);
         Route::get('/live-classes/{id}/recording', [LiveClassController::class, 'getRecording']);
+
+        // Room access endpoints
+        Route::get('/live-classes/{id}/room', [LiveClassController::class, 'room']);
+        Route::post('/live-classes/{id}/end', [LiveClassController::class, 'end']);
+        Route::get('/live-classes/{id}/room/recording', [LiveClassController::class, 'getRecording']);
     // });
 });

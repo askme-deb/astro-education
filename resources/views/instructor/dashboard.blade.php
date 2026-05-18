@@ -448,9 +448,14 @@
 
             if (result.success) {
 
-                alert('Live class started successfully!');
+                alert('Live class started successfully! Redirecting to room...');
 
-                window.location.reload();
+                // Redirect to room view
+                if (result.data && result.data.live_class && result.data.live_class.id) {
+                    window.location.href = `/student/live-classes/${result.data.live_class.id}/room`;
+                } else {
+                    window.location.reload();
+                }
 
             } else {
 

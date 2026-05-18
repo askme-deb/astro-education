@@ -100,7 +100,7 @@ Route::prefix('student')
                 |--------------------------------------------------------------------------
                 */
 
-                Route::post('/{id}/join', [ApiLiveClassController::class, 'join'])
+                Route::get('/{id}/join', [ApiLiveClassController::class, 'join'])
                     ->name('join');
 
                 /*
@@ -111,6 +111,9 @@ Route::prefix('student')
 
                 Route::post('/{id}/start', [ApiLiveClassController::class, 'start'])
                     ->name('start');
+
+                Route::get('/{id}/room', [LMSLiveClassController::class, 'room'])
+                    ->name('room');
             });
     });
 

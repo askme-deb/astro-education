@@ -214,7 +214,7 @@
                     <p class="text-muted"><small>You will be redirected to the live session when you join.</small></p>
                 `;
                 document.getElementById('joinDetails').innerHTML = detailsHtml;
-                document.getElementById('joinLiveBtn').href = '#'; // Would link to actual meeting
+                document.getElementById('joinLiveBtn').href = `/student/live-classes/${liveClassId}/room`;
 
                 const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('joinModal'));
                 modal.show();
