@@ -105,16 +105,10 @@
         setupWebSocketListener();
     });
 
-    function fetchMyLiveClasses() {
-        fetch('/api/v1/my-live-classes', {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': csrfToken
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
+    async function fetchMyLiveClasses() {
+        try {
+            const data = await window.LiveClassService.getMyLiveClasses();
+            
             if (data.success || data.data) {
                 displayLiveClasses(data.data || []);
                 displayRecordings(data.recorded || []);
@@ -122,12 +116,11 @@
                 document.getElementById('liveClassesList').innerHTML =
                     '<div class="alert alert-warning">Unable to load live classes. Please refresh the page.</div>';
             }
-        })
-        .catch(error => {
+        } catch (error) {
             console.error('Error fetching live classes:', error);
             document.getElementById('liveClassesList').innerHTML =
                 '<div class="alert alert-danger">Error loading live classes. Please try again later.</div>';
-        });
+        }
     }
 
     function displayLiveClasses(liveClasses) {
@@ -195,16 +188,10 @@
         container.innerHTML = html;
     }
 
-    function openJoinModal(liveClassId) {
-        fetch(`/api/v1/live-classes/${liveClassId}/join`, {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': csrfToken
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
+    async function openJoinModal(liveClassId) {
+        try {
+            const data = await window.LiveClassService.joinLiveClass(liveClassId);
+            
             if (data.success) {
                 const joinData = data.data;
                 const detailsHtml = `
@@ -221,11 +208,10 @@
             } else {
                 alert('Error retrieving join details. Please try again.');
             }
-        })
-        .catch(error => {
+        } catch (error) {
             console.error('Error:', error);
             alert('An error occurred while preparing to join.');
-        });
+        }
     }
 
     function setupWebSocketListener() {

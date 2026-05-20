@@ -1044,7 +1044,7 @@ $heroCtaUrl = ($isEnrolled ?? false)
                                                                                                                 <a href="{{ route('live-classes.show', ['id' => $liveClass['id']]) }}" class="course-btn-muted">View Details</a>
                                                                                                             @endif
                                                                                                             @if ($hasAuthenticatedUser && !empty($liveClass['id']))
-                                                                                                                <a href="{{ route('live-classes.join', ['id' => $liveClass['id']]) }}" class="course-btn-secondary">
+                                                                                                                <a href="{{ route('live-classes.room', ['id' => $liveClass['id']]) }}" class="course-btn-secondary">
                                                                                                                     Join Live Class
                                                                                                                 </a>
                                                                                                             @endif

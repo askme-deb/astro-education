@@ -16,10 +16,15 @@ return Application::configure(basePath: dirname(__DIR__))
             'enrollment' => \App\Middleware\EnrollmentMiddleware::class,
             'api.user.auth' => \App\Middleware\ApiUserAuthenticated::class,
         ]);
+        $middleware->prepend(\App\Middleware\CorsMiddleware::class);
+        $middleware->prepend(\Illuminate\Http\Middleware\HandleCors::class);
         $middleware->prepend(\App\Middleware\EncryptCookies::class);
         $middleware->encryptCookies(except: [
             'guest_user_id',
             'auth_api_token',
+        ]);
+        $middleware->api(prepend: [
+            \Illuminate\Http\Middleware\HandleCors::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -19,25 +19,25 @@ use App\Http\Controllers\LiveClassController;
 //     return $request->user();
 // });
 
-Route::prefix('/v1')->group(function () {
+Route::options('/{any}', function () {
+    return response()->noContent();
+})->where('any', '.*');
+
+Route::prefix('/v1')->middleware('api.user.auth')->group(function () {
     // Instructor/Admin live class endpoints
-   // Route::middleware('auth:sanctum')->group(function () {
-        Route::post('/live-classes', [LiveClassController::class, 'create']);
-        Route::get('/live-classes', [LiveClassController::class, 'index']);
-        Route::get('/live-classes/{id}', [LiveClassController::class, 'show']);
-        Route::put('/live-classes/{id}', [LiveClassController::class, 'update']);
-        Route::delete('/live-classes/{id}', [LiveClassController::class, 'destroy']);
-        Route::post('/live-classes/{id}/start', [LiveClassController::class, 'start']);
+    Route::post('/live-classes', [LiveClassController::class, 'create']);
+    Route::get('/live-classes', [LiveClassController::class, 'index']);
+    Route::get('/live-classes/{id}', [LiveClassController::class, 'show']);
+    Route::put('/live-classes/{id}', [LiveClassController::class, 'update']);
+    Route::delete('/live-classes/{id}', [LiveClassController::class, 'destroy']);
+    Route::post('/live-classes/{id}/start', [LiveClassController::class, 'start']);
+    Route::post('/live-classes/{id}/end', [LiveClassController::class, 'end']);
 
-        // Student live class endpoints
-        Route::get('/my-live-classes', [LiveClassController::class, 'myClasses']);
-        Route::post('/live-classes/{id}/enroll', [LiveClassController::class, 'enroll']);
-        Route::get('/live-classes/{id}/join', [LiveClassController::class, 'join']);
-        Route::get('/live-classes/{id}/recording', [LiveClassController::class, 'getRecording']);
-
-        // Room access endpoints
-        Route::get('/live-classes/{id}/room', [LiveClassController::class, 'room']);
-        Route::post('/live-classes/{id}/end', [LiveClassController::class, 'end']);
-        Route::get('/live-classes/{id}/room/recording', [LiveClassController::class, 'getRecording']);
-    // });
+    // Student/Instructor live class endpoints
+    Route::get('/my-live-classes', [LiveClassController::class, 'myClasses']);
+    Route::post('/live-classes/{id}/enroll', [LiveClassController::class, 'enroll']);
+    Route::get('/live-classes/{id}/join', [LiveClassController::class, 'join']);
+    Route::get('/live-classes/{id}/recording', [LiveClassController::class, 'getRecording']);
+    Route::get('/live-classes/{id}/room', [LiveClassController::class, 'room']);
+    Route::get('/live-classes/{id}/room/recording', [LiveClassController::class, 'roomRecording']);
 });

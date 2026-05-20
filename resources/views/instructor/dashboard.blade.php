@@ -175,119 +175,45 @@
     document
         .getElementById('createLiveClassForm')
         .addEventListener('submit', async function (e) {
-
             e.preventDefault();
 
             try {
-
                 const formData = new FormData(this);
+                const data = Object.fromEntries(formData.entries());
 
-                let data = Object.fromEntries(formData.entries());
-
-                // Checkbox boolean
                 data.is_recorded = formData.has('is_recorded');
 
-                // Fix datetime format
                 if (data.start_time) {
-                    data.start_time =
-                        data.start_time.replace('T', ' ') + ':00';
+                    data.start_time = data.start_time.replace('T', ' ') + ':00';
                 }
 
                 if (data.end_time) {
-                    data.end_time =
-                        data.end_time.replace('T', ' ') + ':00';
+                    data.end_time = data.end_time.replace('T', ' ') + ':00';
                 }
 
-                // API URL
-                let url = '/api/v1/live-classes';
-                let method = 'POST';
+                const result = editingLiveClassId
+                    ? await window.LiveClassService.updateLiveClass(editingLiveClassId, data)
+                    : await window.LiveClassService.createLiveClass(data);
 
-                // Edit mode
-                if (editingLiveClassId) {
-                    url = `/api/v1/live-classes/${editingLiveClassId}`;
-
-                    // Laravel prefers POST + _method
-                    data._method = 'PUT';
-                }
-
-                const response = await fetch(url, {
-                    method: method,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken
-                    },
-                    body: JSON.stringify(data)
-                });
-
-                const result = await response.json();
-
-                console.log('API RESPONSE:', result);
-
-                // Validation / server error
-                if (!response.ok) {
-
-                    let errorMessage = 'Something went wrong';
-
-                    // Laravel validation errors
-                    if (result.errors) {
-
-                        errorMessage = Object.values(result.errors)
-                            .flat()
-                            .join('\n');
-
-                    } else if (result.message) {
-
-                        errorMessage = result.message;
-                    }
-
-                    alert(errorMessage);
-
+                if (!result.success) {
+                    alert(result.message || 'Unable to save live class.');
                     return;
                 }
 
-                // Success
-                if (result.success) {
+                alert(editingLiveClassId ? 'Live class updated successfully!' : 'Live class created successfully!');
 
-                    alert(
-                        editingLiveClassId
-                            ? 'Live class updated successfully!'
-                            : 'Live class created successfully!'
-                    );
+                this.reset();
+                editingLiveClassId = null;
 
-                    // Reset form
-                    document
-                        .getElementById('createLiveClassForm')
-                        .reset();
-
-                    editingLiveClassId = null;
-
-                    // Close modal
-                    const modalElement =
-                        document.getElementById('createModal');
-
-                    const modal =
-                        bootstrap.Modal.getInstance(modalElement);
-
-                    if (modal) {
-                        modal.hide();
-                    }
-
-                    // Reload
-                    window.location.reload();
-
-                } else {
-
-                    alert(result.message || 'Unknown error');
+                const modal = bootstrap.Modal.getInstance(document.getElementById('createModal'));
+                if (modal) {
+                    modal.hide();
                 }
 
+                window.location.reload();
             } catch (error) {
-
                 console.error('FULL ERROR:', error);
-
-                alert(
-                    'Server error occurred. Check laravel.log or browser console.'
-                );
+                alert(error.message || 'Server error occurred.');
             }
         });
 
@@ -298,69 +224,28 @@
     */
 
     async function editLiveClass(id) {
-
         try {
+            const result = await window.LiveClassService.getLiveClass(id);
 
-            const response = await fetch(`/api/v1/live-classes/${id}`, {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken
-                }
-            });
-
-            const result = await response.json();
-
-            console.log(result);
-
-            if (!response.ok) {
+            if (!result.success) {
                 alert(result.message || 'Failed to load live class');
                 return;
             }
 
-            if (result.success) {
+            const data = result.data;
+            editingLiveClassId = id;
 
-                const data = result.data;
+            document.getElementById('title').value = data.title || '';
+            document.getElementById('description').value = data.description || '';
+            document.getElementById('course_id').value = data.course_id || '';
+            document.getElementById('start_time').value = formatDateTimeLocal(data.start_time);
+            document.getElementById('end_time').value = formatDateTimeLocal(data.end_time);
+            document.getElementById('is_recorded').checked = data.is_recorded || false;
+            document.querySelector('#createModal .modal-title').textContent = 'Edit Live Class';
 
-                editingLiveClassId = id;
-
-                document.getElementById('title').value =
-                    data.title || '';
-
-                document.getElementById('description').value =
-                    data.description || '';
-
-                document.getElementById('course_id').value =
-                    data.course_id || '';
-
-                document.getElementById('start_time').value =
-                    formatDateTimeLocal(data.start_time);
-
-                document.getElementById('end_time').value =
-                    formatDateTimeLocal(data.end_time);
-
-                document.getElementById('is_recorded').checked =
-                    data.is_recorded || false;
-
-                document.querySelector(
-                    '#createModal .modal-title'
-                ).textContent = 'Edit Live Class';
-
-                const modal = bootstrap.Modal.getOrCreateInstance(
-                    document.getElementById('createModal')
-                );
-
-                modal.show();
-
-            } else {
-
-                alert(result.message || 'Unable to load data');
-            }
-
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('createModal')).show();
         } catch (error) {
-
             console.error(error);
-
             alert('Failed to load live class.');
         }
     }
@@ -372,43 +257,22 @@
     */
 
     async function deleteLiveClass(id) {
-
         if (!confirm('Delete this live class?')) {
             return;
         }
 
         try {
+            const result = await window.LiveClassService.deleteLiveClass(id);
 
-            const response = await fetch(`/api/v1/live-classes/${id}`, {
-                method: 'DELETE',
-                headers: {
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken
-                }
-            });
-
-            const result = await response.json();
-
-            if (!response.ok) {
+            if (!result.success) {
                 alert(result.message || 'Delete failed');
                 return;
             }
 
-            if (result.success) {
-
-                alert('Live class deleted successfully!');
-
-                window.location.reload();
-
-            } else {
-
-                alert(result.message || 'Delete failed');
-            }
-
+            alert('Live class deleted successfully!');
+            window.location.reload();
         } catch (error) {
-
             console.error(error);
-
             alert('Server error while deleting.');
         }
     }
@@ -420,46 +284,25 @@
     */
 
     async function startLiveClass(id) {
-
         if (!confirm('Start this live class now?')) {
             return;
         }
 
         try {
+            const result = await window.LiveClassService.startLiveClass(id);
 
-            const response = await fetch(
-                `/api/v1/live-classes/${id}/start`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken
-                    }
-                }
-            );
-
-            const result = await response.json();
-
-            if (!response.ok) {
-                alert(result.message || 'Unable to start live class');
+            if (!result.success) {
+                alert(result.message || 'Failed to start live class');
                 return;
             }
 
-            if (result.success) {
-
-                alert('Live class started successfully! Redirecting to room...');
-
-                // Redirect to room view
-                if (result.data && result.data.live_class && result.data.live_class.id) {
-                    window.location.href = `/student/live-classes/${result.data.live_class.id}/room`;
-                } else {
-                    window.location.reload();
-                }
-
+            alert('Live class started successfully!');
+            
+            // Redirect to room
+            if (result.data && result.data.live_class) {
+                window.location.href = `/student/live-classes/${id}/room`;
             } else {
-
-                alert(result.message || 'Start failed');
+                window.location.reload();
             }
 
         } catch (error) {

@@ -25,4 +25,90 @@ window.sendOTP = function() {
     alert('OTP Sent (Demo)');
 };
 
-// Add more modular JS as needed for your site
+window.LiveClassService = {
+    baseURL: window.location.origin.replace(':8001', ':8000') + '/api/v1',
+
+    csrfToken() {
+        return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    },
+
+    async request(endpoint, options = {}) {
+        const response = await fetch(`${this.baseURL}${endpoint}`, {
+            ...options,
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': this.csrfToken(),
+                ...(options.headers || {}),
+            },
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Request failed.');
+        }
+
+        return data;
+    },
+
+    getMyLiveClasses() {
+        return this.request('/my-live-classes');
+    },
+
+    getLiveClass(id) {
+        return this.request(`/live-classes/${id}`);
+    },
+
+    joinLiveClass(id) {
+        return this.request(`/live-classes/${id}/join`);
+    },
+
+    startLiveClass(id) {
+        return this.webRequest(`/student/live-classes/${id}/start`, { method: 'POST' });
+    },
+
+    endLiveClass(id) {
+        return this.request(`/live-classes/${id}/end`, { method: 'POST' });
+    },
+
+    createLiveClass(data) {
+        return this.request('/live-classes', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
+
+    updateLiveClass(id, data) {
+        return this.request(`/live-classes/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        });
+    },
+
+    deleteLiveClass(id) {
+        return this.request(`/live-classes/${id}`, { method: 'DELETE' });
+    },
+
+    async webRequest(endpoint, options = {}) {
+        const response = await fetch(endpoint, {
+            ...options,
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': this.csrfToken(),
+                ...(options.headers || {}),
+            },
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Request failed.');
+        }
+
+        return data;
+    },
+};

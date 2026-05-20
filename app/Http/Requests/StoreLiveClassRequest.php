@@ -8,7 +8,21 @@ class StoreLiveClassRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        $user = auth()->user();
+        
+        if (!$user) {
+            return false;
+        }
+
+        $allowedRoles = ['Instructor', 'instructor', 'Admin', 'admin', 'Super Admin'];
+        $roles = collect(session('auth.roles', []))
+            ->merge(collect($user->roles ?? [])->map(fn ($role) => is_array($role) ? ($role['name'] ?? null) : $role))
+            ->push($user->role ?? null)
+            ->filter()
+            ->values()
+            ->all();
+
+        return ! empty(array_intersect($roles, $allowedRoles));
     }
 
     public function rules(): array

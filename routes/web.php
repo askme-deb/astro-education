@@ -117,6 +117,15 @@ Route::prefix('student')
             });
     });
 
+Route::prefix('live-classes')
+    ->middleware(['api.user.auth'])
+    ->group(function (): void {
+        Route::get('/', fn () => redirect()->route('live-classes.index'));
+        Route::get('/{id}', fn ($id) => redirect()->route('live-classes.show', ['id' => $id]));
+        Route::get('/{id}/join', fn ($id) => redirect()->route('live-classes.room', ['id' => $id]));
+        Route::get('/{id}/room', fn ($id) => redirect()->route('live-classes.room', ['id' => $id]));
+    });
+
 /*
 |--------------------------------------------------------------------------
 | Instructor

@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use App\Events\LiveClassCreated;
 use App\Events\LiveClassStarted;
 use App\Services\Api\LiveClasses\LiveClassApiService;
+use App\Http\Requests\StoreLiveClassRequest;
+use App\Http\Requests\UpdateLiveClassRequest;
 
 class LiveClassController extends Controller
 {
@@ -19,18 +21,8 @@ class LiveClassController extends Controller
     /**
      * Create a new live class
      */
-    public function create(Request $request)
+    public function create(StoreLiveClassRequest $request)
     {
-        $request->validate([
-            'title' => 'required|string',
-            'description' => 'nullable|string',
-            'course_id' => 'required|integer',
-            'start_time' => 'required|date',
-            'end_time' => 'required|date|after:start_time',
-            'is_recorded' => 'nullable|boolean',
-            'recording_url' => 'nullable|url',
-        ]);
-
         $response = $this->liveClassApiService
             ->createLiveClass($request->all());
 
@@ -58,31 +50,6 @@ class LiveClassController extends Controller
             'message' => 'Failed to create live class',
         ], 500);
     }
-    // public function create(Request $request)
-    // {
-    //     $request->validate([
-    //         'title' => 'required|string',
-    //         'description' => 'nullable|string',
-    //         'course_id' => 'required|integer',
-    //         'start_time' => 'required|date',
-    //         'end_time' => 'required|date|after:start_time',
-    //         'is_recorded' => 'nullable|boolean',
-    //         'recording_url' => 'nullable|url',
-    //     ]);
-
-    //     $response = $this->liveClassApiService->createLiveClass($request->all());
-
-    //    if (!empty($response['success'])) {
-    //         $data = $response->json();
-
-    //         // Broadcast the event to notify students
-    //         broadcast(new LiveClassCreated($data['data']))->toOthers();
-
-    //         return response()->json($data);
-    //     }
-
-    //     return response()->json(['error' => 'Failed to create live class'], 500);
-    // }
 
     /**
      * List instructor's live classes
@@ -118,18 +85,8 @@ class LiveClassController extends Controller
     /**
      * Update live class
      */
-    public function update(Request $request, $id)
+    public function update(UpdateLiveClassRequest $request, $id)
     {
-        $request->validate([
-            'title' => 'sometimes|required|string',
-            'description' => 'nullable|string',
-            'course_id' => 'sometimes|required|integer',
-            'start_time' => 'sometimes|required|date',
-            'end_time' => 'sometimes|required|date|after:start_time',
-            'is_recorded' => 'nullable|boolean',
-            'recording_url' => 'nullable|url',
-        ]);
-
         $response = $this->liveClassApiService->updateLiveClass($id, $request->all());
 
         if ($response->successful()) {
@@ -198,39 +155,69 @@ class LiveClassController extends Controller
     /**
      * Join live class
      */
-public function join(Request $request, $id)
-{
-    $response = $this->liveClassApiService
-        ->joinLiveClass($id);
+    public function join(Request $request, $id)
+    {
+        $response = $this->liveClassApiService
+            ->joinLiveClass($id);
 
-    // Service returns array with 'success' key
-    if (!empty($response['success'])) {
-        $data = $response['data'] ?? [];
+        if (!empty($response['success'])) {
+            $data = $this->extractJoinPayload($response);
 
-        // Get live class details to include in response
-        $liveClassData = $this->liveClassApiService->detail((int) $id);
+            $liveClassData = $this->liveClassApiService->detail((int) $id);
+            $meetingId = $data['meeting_id'] ?? $data['room_id'] ?? $data['meetingId'] ?? null;
+            $token = $data['token'] ?? $data['auth_token'] ?? $data['jwt'] ?? null;
+            $apiKey = $data['api_key'] ?? $data['apiKey'] ?? config('services.videosdk.api_key') ?? $this->extractApiKeyFromJwt($token);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Join credentials generated successfully.',
+                'data' => [
+                    'meeting_id' => $meetingId,
+                    'meeting_link' => $data['meeting_link'] ?? $data['join_url'] ?? null,
+                    'token' => $token,
+                    'api_key' => $apiKey,
+                    'user_name' => auth()->user()->name ?? 'User',
+                    'participant_id' => (string) ($data['participant_id'] ?? $data['user_id'] ?? auth()->id()),
+                    'user_id' => (string) ($data['user_id'] ?? auth()->id()),
+                    'role' => $data['role'] ?? 'participant',
+                    'live_class' => $liveClassData,
+                    'debug' => [
+                        'has_token' => !empty($token),
+                        'has_api_key' => !empty($apiKey),
+                        'has_meeting_id' => !empty($meetingId),
+                    ],
+                ]
+            ]);
+        }
 
         return response()->json([
-            'success' => true,
-            'message' => 'Join credentials generated successfully.',
-            'data' => [
-                'meeting_id' => $data['meeting_id'] ?? null,
-                'meeting_link' => $data['meeting_link'] ?? $data['join_url'] ?? null,
-                'token' => $data['token'] ?? null,
-                'user_name' => auth()->user()->name ?? 'User',
-                'user_id' => (string) auth()->id(),
-                'role' => $data['role'] ?? 'participant',
-                'live_class' => $liveClassData,
-            ]
-        ]);
+            'success' => false,
+            'message' => $response['error'] ?? $response['message'] ?? 'Failed to join live class.'
+        ], 500);
     }
 
-    return response()->json([
-        'success' => false,
-        'message' => $response['error'] ?? $response['message'] ?? 'Failed to join live class.',
-        'debug' => $response
-    ], 500);
-}
+    private function extractJoinPayload(array $response): array
+    {
+        $data = $response['data'] ?? [];
+
+        return $data['data']['join_payload']
+            ?? $data['join_payload']
+            ?? $data['data']
+            ?? $data
+            ?? [];
+    }
+
+    private function extractApiKeyFromJwt(?string $token): ?string
+    {
+        if (empty($token) || substr_count($token, '.') < 2) {
+            return null;
+        }
+
+        $parts = explode('.', $token);
+        $payload = json_decode(base64_decode(strtr($parts[1], '-_', '+/')), true);
+
+        return is_array($payload) ? ($payload['apikey'] ?? $payload['apiKey'] ?? null) : null;
+    }
 
     /**
      * Get recording access
@@ -259,29 +246,25 @@ public function join(Request $request, $id)
     public function room(Request $request, $id)
     {
         $liveClass = $this->liveClassApiService->detail((int) $id);
-       // $roomResponse = $this->liveClassApiService->getRoomAccess((int) $id);
         $response = $this->liveClassApiService->getRoomAccess($id);
-        $joinPayload = $response['data']['data']['join_payload'] ?? [];
-       // dd($joinPayload);
-        return view('live-classes.room', [
-            'liveClass'   => $liveClass,
-            'joinPayload' => $joinPayload,
-        ]);
+        
+        if (!empty($response['success'])) {
+            $joinPayload = $response['data']['data']['join_payload'] ?? $response['data']['join_payload'] ?? [];
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Room access granted.',
+                'data' => [
+                    'live_class' => $liveClass,
+                    'join_payload' => $joinPayload
+                ]
+            ]);
+        }
 
-        // $response = $this->liveClassApiService->getRoomAccess($id);
-
-        // if (!empty($response['success'])) {
-        //     return response()->json([
-        //         'success' => true,
-        //         'message' => $response['message'] ?? 'Room access granted.',
-        //         'data' => $response['data'] ?? []
-        //     ]);
-        // }
-
-        // return response()->json([
-        //     'success' => false,
-        //     'message' => $response['error'] ?? $response['message'] ?? 'Failed to get room access.'
-        // ], 500);
+        return response()->json([
+            'success' => false,
+            'message' => $response['error'] ?? $response['message'] ?? 'Failed to get room access.'
+        ], 500);
     }
 
     /**
@@ -305,48 +288,59 @@ public function join(Request $request, $id)
         ], 500);
     }
 
-
     /**
- * Start live class
- */
-/**
- * Start live class
- */
-/**
- * Start live class
- */
-/**
- * Start live class
- */
-public function start(Request $request, $id)
-{
-    $response = $this->liveClassApiService
-        ->startLiveClass($id);
+     * Get room recording access
+     */
+    public function roomRecording(Request $request, $id)
+    {
+        $response = $this->liveClassApiService->getRoomRecording($id);
 
-    if (!empty($response['success'])) {
-        $liveClassData = $response['data'] ?? [];
-
-        // Broadcast event to notify students
-        broadcast(
-            new LiveClassStarted($liveClassData)
-        )->toOthers();
-
-        // Get room access after starting
-        $roomResponse = $this->liveClassApiService->getRoomAccess($id);
+        if (!empty($response['success'])) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Recording access granted.',
+                'data' => $response['data'] ?? []
+            ]);
+        }
 
         return response()->json([
-            'success' => true,
-            'message' => 'Live class started successfully.',
-            'data' => [
-                'live_class' => $liveClassData,
-                'room_access' => $roomResponse['data'] ?? null
-            ]
-        ]);
+            'success' => false,
+            'message' => $response['error'] ?? $response['message'] ?? 'Failed to get recording access.'
+        ], 500);
     }
 
-    return response()->json([
-        'success' => false,
-        'message' => 'Failed to start live class.'
-    ], 500);
-}
+    /**
+     * Start live class
+     */
+    public function start(Request $request, $id)
+    {
+        $response = $this->liveClassApiService
+            ->startLiveClass($id);
+
+        if (!empty($response['success'])) {
+            $liveClassData = $response['data'] ?? [];
+
+            // Broadcast event to notify students
+            broadcast(
+                new LiveClassStarted($liveClassData)
+            )->toOthers();
+
+            // Get room access after starting
+            $roomResponse = $this->liveClassApiService->getRoomAccess($id);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Live class started successfully.',
+                'data' => [
+                    'live_class' => $liveClassData,
+                    'room_access' => $roomResponse['data'] ?? null
+                ]
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to start live class.'
+        ], 500);
+    }
 }

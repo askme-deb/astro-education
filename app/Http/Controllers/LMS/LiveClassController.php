@@ -45,26 +45,69 @@ class LiveClassController extends Controller
     public function room($id): View
     {
         $liveClass = $this->liveClassApiService->detail((int) $id);
+        $user = auth()->user();
 
-        // Get join credentials from the API
         $joinResponse = $this->liveClassApiService->joinLiveClass((int) $id);
+        $roomResponse = $this->liveClassApiService->getRoomAccess((int) $id);
 
-        // Extract join payload from response
-        if (!empty($joinResponse['success']) && !empty($joinResponse['data'])) {
-            // The service returns ['success' => true, 'data' => [...API response...]]
-            // The API response contains ['success' => true, 'message' => '...', 'data' => [...]]
-            // So we need to extract the inner 'data' from the API response
-            $apiResponse = $joinResponse['data'];
-            $joinPayload = $apiResponse['data'] ?? $apiResponse;
-        } else {
-            // Fallback to room access endpoint
-            $roomResponse = $this->liveClassApiService->getRoomAccess((int) $id);
-            $joinPayload = $roomResponse['data']['join_payload'] ?? $roomResponse['data'] ?? [];
+        $joinPayload = array_replace_recursive(
+            $this->extractJoinPayload($roomResponse),
+            $this->extractJoinPayload($joinResponse)
+        );
+
+        $meetingId = $joinPayload['meeting_id'] ?? $joinPayload['room_id'] ?? $joinPayload['meetingId'] ?? '';
+        $token = $joinPayload['token'] ?? $joinPayload['auth_token'] ?? $joinPayload['jwt'] ?? '';
+        $apiKey = $joinPayload['api_key'] ?? $joinPayload['apiKey'] ?? config('services.videosdk.api_key') ?? $this->extractApiKeyFromJwt($token);
+        
+        $role = $joinPayload['role'] ?? 'participant';
+        if (session()->has('auth.roles') && in_array('Instructor', session('auth.roles'))) {
+            $role = 'host';
         }
+
+        $jsPayload = [
+            'token' => $token,
+            'api_key' => $apiKey,
+            'meeting_id' => $meetingId,
+            'participant_id' => (string) ($joinPayload['participant_id'] ?? $joinPayload['user_id'] ?? $user->id ?? auth()->id()),
+            'user_name' => $joinPayload['user_name'] ?? $joinPayload['name'] ?? $user->name ?? $user->email ?? 'User',
+            'role' => $role,
+            'live_class' => $liveClass,
+            'debug' => [
+                'join_success' => !empty($joinResponse['success']),
+                'room_success' => !empty($roomResponse['success']),
+                'has_token' => !empty($token),
+                'has_api_key' => !empty($apiKey),
+                'has_meeting_id' => !empty($meetingId),
+            ],
+        ];
 
         return view('live-classes.room', [
             'liveClass' => $liveClass,
             'joinPayload' => $joinPayload,
+            'jsPayload' => $jsPayload,
         ]);
+    }
+
+    private function extractJoinPayload(array $response): array
+    {
+        $data = $response['data'] ?? [];
+
+        return $data['data']['join_payload']
+            ?? $data['join_payload']
+            ?? $data['data']
+            ?? $data
+            ?? [];
+    }
+
+    private function extractApiKeyFromJwt(?string $token): ?string
+    {
+        if (empty($token) || substr_count($token, '.') < 2) {
+            return null;
+        }
+
+        $parts = explode('.', $token);
+        $payload = json_decode(base64_decode(strtr($parts[1], '-_', '+/')), true);
+
+        return is_array($payload) ? ($payload['apikey'] ?? $payload['apiKey'] ?? null) : null;
     }
 }
