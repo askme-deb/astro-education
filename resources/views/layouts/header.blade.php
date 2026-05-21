@@ -23,10 +23,10 @@
                                     <i class="bi bi-grid-1x2-fill"></i>
                                     Dashboard
                                 </a>
-                                <a class="dropdown-item account-dropdown-item" href="{{ route('student.dashboard') }}">
+                                <!-- <a class="dropdown-item account-dropdown-item" href="{{ route('student.dashboard') }}">
                                     <i class="bi bi-mortarboard-fill"></i>
                                     Student Area
-                                </a>
+                                </a> -->
                                 <a class="dropdown-item account-dropdown-item" href="{{ route('live-classes.index') }}">
                                     <i class="bi bi-broadcast-pin"></i>
                                     Live Classes
@@ -355,9 +355,9 @@
                 <!-- <li class="nav-item"><a class="nav-link" href="#">Services</a></li> -->
                 <li class="nav-item"><a class="nav-link" href="{{ url('/courses') }}">Courses</a></li>
                 <li class="nav-item"><a class="nav-link" href="{{ url('/contact') }}">Contact</a></li>
-                <li class="nav-item">
+                <!-- <li class="nav-item">
                     <a href="https://jyotish.astrorajumaharaj.com" class="btn btn-primary header-btn">Book Consultation</a>
-                </li>
+                </li> -->
             </ul>
             <!-- <a href="consultation.php" class="btn btn-astro ms-3">Book Consultation</a> -->
         </div>

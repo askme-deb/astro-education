@@ -11,6 +11,10 @@ class ApiUserAuthenticated
 {
     public function handle(Request $request, Closure $next)
     {
+        if ($request->isMethod('OPTIONS')) {
+            return $next($request);
+        }
+
         $token = $request->cookie('auth_api_token');
 
         if (! $token) {

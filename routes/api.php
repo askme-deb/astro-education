@@ -19,9 +19,9 @@ use App\Http\Controllers\LiveClassController;
 //     return $request->user();
 // });
 
-Route::options('/{any}', function () {
-    return response()->noContent();
-})->where('any', '.*');
+// Route::options('/{any}', function () {
+//     return response()->noContent();
+// })->where('any', '.*');
 
 Route::prefix('/v1')->middleware('api.user.auth')->group(function () {
     // Instructor/Admin live class endpoints

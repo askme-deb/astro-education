@@ -76,7 +76,7 @@ class LoginController extends Controller
 
         $redirectUrl = $context === 'checkout'
             ? route('checkout.index')
-            : (url()->previous() ?: '/');
+            : $this->dashboardUrlForRoles($roles);
 
         $secure = $request->isSecure();
 
@@ -112,5 +112,20 @@ class LoginController extends Controller
             false,
             'Lax'
         );
+    }
+
+    private function dashboardUrlForRoles(array $roles): string
+    {
+        $normalizedRoles = array_map(fn ($role) => strtolower((string) $role), $roles);
+
+        if (in_array('instructor', $normalizedRoles, true) || in_array('teacher', $normalizedRoles, true)) {
+            return route('instructor.dashboard');
+        }
+
+        if (in_array('admin', $normalizedRoles, true)) {
+            return route('instructor.dashboard');
+        }
+
+        return route('student.dashboard');
     }
 }
