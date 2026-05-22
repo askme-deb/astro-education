@@ -30,7 +30,7 @@
 
                 @if ($featuredCourse)
                     <a href="{{ route('courses.show', ['id' => $featuredCourse['id']]) }}" class="appointment-btn text-decoration-none d-inline-flex align-items-center justify-content-center">
-                        Explore {{ $featuredCourse['title'] }}
+                        Explore 1{{ $featuredCourse['title'] }}
                     </a>
                 @endif
             </div>
